@@ -10,21 +10,15 @@ import (
 )
 
 const (
-	configFile = "./config.yml"
+	DEFAULT_CONFIG_FILE = "./config.yml"
 )
 
 type serverConfig struct {
 	Port string `yaml:"port"`
 }
 
-func (s *serverConfig) getConfig(f string) error {
-	if _, err := os.Stat(f); os.IsNotExist(err) {
-		fmt.Println("No configuration file found. Using default configuration.")
-		s.Port = ":80"
-		return nil
-	}
-
-	fBytes, err := os.ReadFile("./config.yml")
+func (s *serverConfig) readConfigFile(f string) error {
+	fBytes, err := os.ReadFile(f)
 	if err != nil {
 		return err
 	}
@@ -34,11 +28,44 @@ func (s *serverConfig) getConfig(f string) error {
 		return err
 	}
 	return nil
+
+} // end readConfig
+
+func (s *serverConfig) readEnv() {
+	fmt.Println("Reading from environment variables")
+	s.Port = os.Getenv("SERVER_PORT")
+} // end readEnv
+
+func (s *serverConfig) useDefaults() {
+	fmt.Println("Using defaults")
+	if s.Port == "" {
+		s.Port = ":80"
+	}
+}
+
+func (s *serverConfig) getConfig(f string) error {
+	if _, err := os.Stat(f); os.IsNotExist(err) {
+		fmt.Printf("%v not found.\n", f)
+		s.readEnv()
+		s.useDefaults()
+		return nil
+	}
+
+	err := s.readConfigFile(f)
+	if err != nil {
+		return err
+	}
+	return nil
 } // end getConfig
 
 func main() {
 
 	config := serverConfig{}
+	configFile := os.Getenv("SERVER_CONFIG_FILE")
+	if configFile == "" {
+		fmt.Printf("SERVER_CONFIG_FILE not set. Using default %v\n", DEFAULT_CONFIG_FILE)
+		configFile = DEFAULT_CONFIG_FILE
+	}
 	err := config.getConfig(configFile)
 	if err != nil {
 		log.Fatal(err)
